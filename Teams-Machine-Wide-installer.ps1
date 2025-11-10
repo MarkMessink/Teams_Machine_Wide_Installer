@@ -6,15 +6,16 @@
     Author:      Mark Messink
     Contact:     
     Created:     2022-06-30
-    Updated:     2022-12-20
+    Updated:     2024-05-07
 
     Version history:
     1.0.0 - (2022-06-30) Initial Script
 	1.0.1 - (2022-12-20) Script verniewd
-	1.1.0 - 
+	1.1.0 - (2023-11-30) Script aangepast voor nieuwe Teams client
+	2.0.0 - (2024-05-07) Script aangepast voor installatie Teams versie 2.0
 
 .DESCRIPTION
-	<wat doet het script in meerdere regels>
+	Installatie Teams Client V2
 
 .PARAMETER
 	<beschrijf de parameters die eventueel aan het script gekoppeld moeten worden>
@@ -34,11 +35,14 @@
 	./scriptnaam.ps1
 
 .LINK Information
-	https://docs.microsoft.com/en-us/microsoftteams/msi-deployment#how-the-microsoft-teams-msi-file-works
+	https://learn.microsoft.com/en-us/microsoftteams/new-teams-bulk-install-client
 
-.LINK Download
-	https://aka.ms/teams64bitmsi
-
+.LINK 
+    Download teamsbootstrapper.exe
+	https://go.microsoft.com/fwlink/?linkid=2243204&clcid=0x409
+	Download Teams MSIX x64
+	https://go.microsoft.com/fwlink/?linkid=2196106
+	
 .NOTES
 	WindowsBuild:
 	Het script wordt uitgevoerd tussen de builds LowestWindowsBuild en HighestWindowsBuild
@@ -47,16 +51,13 @@
 	LowestWindowsBuild = 22000 en HighestWindowsBuild 22999 zijn alle Windows 11 versies
 	Zie: https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information
 
-
 #>
 
 #################### Variabelen #####################################
 $logpath = "C:\IntuneLogs"
-$NameLogfile = "PSlog_Teams-Machine-Wide-installer.txt"
+$NameLogfile = "PSlog_Teams-installer.txt"
 $LowestWindowsBuild = 0
 $HighestWindowsBuild = 50000
-
-
 
 #################### Einde Variabelen ###############################
 
@@ -102,23 +103,44 @@ Write-Output "##################################################################
 	
 	if (-not(Test-Path -Path "$ExeFile" -PathType Leaf)) {
 		Write-Output "-------------------------------------------------------------------"
-		Write-Output "Download Teams from Microsoft"
-		$downloadLocation = "https://aka.ms/teams64bitmsi"
-		$downloadDestination = "$($env:TEMP)\TeamsSetup.msi"
+		Write-Output "Download Teamsbootstrapper"
+		$downloadLocation = "https://go.microsoft.com/fwlink/?linkid=2243204&clcid=0x409"
+		$teamsbootstrapper = "$($env:TEMP)\teamsbootstrapper.exe"
 		$webClient = New-Object System.Net.WebClient
-		$webClient.DownloadFile($downloadLocation, $downloadDestination)
+		$webClient.DownloadFile($downloadLocation, $teamsbootstrapper)
+		<#
 		Write-Output "-------------------------------------------------------------------"
-		Write-Output "Teams Download"
-		(Get-Item $downloadDestination).VersionInfo | FL FileName 
+		Write-Output "Download Teams from Microsoft"
+		$downloadLocation = "https://go.microsoft.com/fwlink/?linkid=2196106"
+		$MSTeams-x64 = "$($env:TEMP)\MSTeams-x64.msix"
+		$webClient = New-Object System.Net.WebClient
+		$webClient.DownloadFile($downloadLocation, $MSTeams-x64)
+		#>
 		Write-Output "-------------------------------------------------------------------"
-		Write-Output "Install Teams Machine-Wide"
-		$installProcess = Start-Process msiexec.exe -Wait -ArgumentList "/i $downloadDestination OPTIONS=noAutoStart=true ALLUSERS=1" -NoNewWindow -PassThru
+		Write-Output "Teams Bootstrapper Download"
+		(Get-Item $teamsbootstrapper).VersionInfo #| FL FileName 
+		<#
+		Write-Output "Teams V2 Download"
+		(Get-Item $MSTeams-x64).VersionInfo #| FL FileName 
+		#>
+		Write-Output "-------------------------------------------------------------------"
+		Write-Output "Install Teams V2 with bootstrapper"
+		$installProcess = Start-Process $teamsbootstrapper -Wait -ArgumentList "-p" -NoNewWindow -PassThru
 		$installProcess.WaitForExit()
+		
+		<#
+		Write-Output "-------------------------------------------------------------------"
+		Write-Output "Install Teams V2 with offline MSIX"
+		$installProcess = Start-Process $teamsbootstrapper -Wait -ArgumentList "-p -o $MSTeams-x64" -NoNewWindow -PassThru
+		$installProcess.WaitForExit()
+		#>
+		
 		} else {
 		Write-Output "-------------------------------------------------------------------"
 		Write-Output "Per machine Teams already exists. Installation skipped"
 	}
-		
+	
+	<#
 	if (Test-Path -Path "$ExeFile" -PathType Leaf) {
 	Write-Output "-------------------------------------------------------------------"
 	Write-Output "Teams version information:"
@@ -129,6 +151,7 @@ Write-Output "##################################################################
 		Write-Output "File not found. Installation failed"
 		Write-Output "-------------------------------------------------------------------"
 	}
+	#>
 
 Write-Output "#####################################################################################"
 Write-Output "### Einde uitvoeren script code                                                   ###"
